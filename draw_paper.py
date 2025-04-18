@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env /mnt/users/daijun_chen/gits/github/RAISE-Bayesian-Optimization/draw_paper.py
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
@@ -8,6 +8,7 @@ from analyze_results import collect_file, run_statistics
 from optimization import ExpectedImprovement, ShapeTransferBO
 from gp import ZeroGProcess
 from simfun import two_exp_mu, tri_exp_mu
+from utils import target_garnett_function
 
 
 # Part 1: images for simulation 1
@@ -166,38 +167,68 @@ def show_EXP_medium_percentile_errorbar(dct_medium_perc1, dct_medium_perc2, dct_
 
 
 # Part 4: rejection effect in 1D
-def show_reject_effect_highMean(x_low, x_high, file_sample_task0, file_task1_stbo, lambda1=1, lambda2=1.5, lambda3=1.25,
+def show_reject_effect_highMean(x_low, x_high, file_sample_task0, file_task1_stbo, target_func="GARNETT", lambda1=1, lambda2=1.5, lambda3=1.25,
                         mu1=[0], mu2=[5], mu3=[10], theta1=1, theta2=1, theta3=1, kessis=[0]):
     """illustrate the rejection effect in 1D"""
-    x_draw = np.linspace(x_low, x_high, 100)
+    x_draw = np.linspace(x_low, x_high, 500) 
 
-    # Line1: standard line
-    GP1 = ZeroGProcess(prior_mean=1.1, r_out_bound=0.1)
+    # Line 1: target function
+    if target_func == "GARNETT":
+        y_target = [target_garnett_function(ele) for ele in x_draw]
+    else:
+        y_target = [tri_exp_mu([ele], lambda1, lambda2, lambda3, mu1, mu2, mu3, theta1, theta2, theta3) for ele in x_draw]
+
+    # Line2: standard line
+    if target_func == "GARNETT":
+        prior_mean = 2.0
+    else:
+        prior_mean = 1.1
+
+    GP1 = ZeroGProcess(prior_mean=prior_mean, r_out_bound=0.1)
     GP1.get_data_from_file(file_sample_task0)
-    GP1.theta = 0.7
+    GP1.theta = 0.7  # 0.7
 
     y1_mean = [GP1.compute_mean([ele]) for ele in x_draw]
     y1_conf_int = [GP1.conf_interval([ele]) for ele in x_draw]
     y1_lower = [ele[0] for ele in y1_conf_int]
     y1_upper = [ele[1] for ele in y1_conf_int]
-
-    # Line 2: target function
-    y_target = [tri_exp_mu([ele], lambda1, lambda2, lambda3, mu1, mu2, mu3, theta1, theta2, theta3) for ele in x_draw]
-    print(tri_exp_mu([5.5], lambda1, lambda2, lambda3, mu1, mu2, mu3, theta1, theta2, theta3))    
     
     # Line 3: AC function
     STBO = ShapeTransferBO()
     STBO.get_data_from_file(file_task1_stbo)
-    STBO.build_task1_gp(file_sample_task0, theta_task1=0.7, prior_mean=1.1, r_out_bound=0.1)
+    STBO.build_task1_gp(file_sample_task0, theta_task1=0.7, prior_mean=prior_mean, r_out_bound=0.1)
     STBO.build_diff_gp()
+    # diffGP theta (can be removed later)
+    STBO.diffGP.theta = 0.5
+    
+    if target_func == "GARNETT":
+        low_opt1 = 0
+        high_opt1 = 30
+        lower_bound = [0]
+        upper_bound = [30]
+    else:
+        low_opt1 = -3
+        high_opt1 = 15
+        lower_bound = [-3]
+        upper_bound = [15]
+
+    start_points = [np.random.uniform(low_opt1, high_opt1, size=1).tolist() for i in range(1)]
+    next_point_stbo, _ = STBO.find_best_NextPoint_ei(start_points, l_bounds=lower_bound, u_bounds=upper_bound,
+                                        learn_rate=0.5, num_step=30, kessi=0.0)
+    print("next point: ", next_point_stbo)
+
+    if target_func == "GARNETT":
+        print("next value: ", target_garnett_function(next_point_stbo))
+    else:
+        print("next value: ", tri_exp_mu(next_point_stbo, lambda1, lambda2, lambda3, mu1, mu2, mu3, theta1, theta2, theta3))
 
     ac_values_lst = []
     if isinstance(kessis, list):
         for kessi in kessis:
             ac_kessi = [STBO.aux_func_ei([ele], kessi) for ele in x_draw]
             ac_values_lst.append(ac_kessi)
-            x_next = 4.71
-            y_next = 1.438249038075815
+            x_next = 1.8668  
+            y_next = 3.1086
             ac_next = STBO.aux_func_ei([x_next], kessis[0])
     elif isinstance(kessis, float):
         ac_kessi = [STBO.aux_func_ei([ele], kessis) for ele in x_draw]
@@ -214,32 +245,54 @@ def show_reject_effect_highMean(x_low, x_high, file_sample_task0, file_task1_stb
     ax.plot(x_draw, y1_mean, label="standard line")
     #ax.fill_between(x_draw, y1_lower, y1_upper, alpha=0.2)
     #ax.plot(GP1.X[2:], [y + 1.1 for y in GP1.Y[2:]], 'o', label="LHS points", color="tab:blue")
-    ax.plot(GP1.X[:2], [y + 1.1 for y in GP1.Y[:2]], 'x', label="prior points", markersize=10, color="tab:blue")
+    ax.plot(GP1.X[:2], [y + prior_mean for y in GP1.Y[:2]], 'x', label="prior points", markersize=10, color="tab:blue")
 
     ax.plot(x_draw, y_target, '--', label="target function")
     ax.plot(STBO.X, STBO.Y, 'o', color="tab:red", label="observations")
     ax.plot([x_next], [y_next], '*', label="next evaluation", markersize=10, color="tab:red")
 
-    ax.axvline(x=4.71, color='orange')
+    ax.axvline(x=1.87, color='orange')
+
+    ax.plot([30], [4], color='white')
 
     for ac_value, kessi in zip(ac_values_lst, kessis):
         ax.plot(x_draw, ac_value, linestyle='dashdot', label="acquisition function")
         ax.plot([x_next], [ac_next], '*', label="acquisition peak", markersize=10, color="tab:green")
         # add rejection area between AC func and line_y
         ac_value_adapt = [min(ele, line_y) for ele in ac_value]
-        ax.fill_between(x_draw, ac_value_adapt, line_y, facecolor="lightblue", edgecolor="white", label="rejection area")
 
     # add text 
-    ax.text(7.80, 0.08, '1', color="red", size=12)
-    ax.text(2.80, 0.08, '2', color="red", size=12)
-    ax.text(-0.2, 0.86, '3', color="red", size=12)
-    ax.text(10.5, 1.18, '4', color="red", size=12)
-    ax.text(5.80, 1.30, '5', color="red", size=12)
-    ax.text(3.90, 0.3, 'x=4.71', color="red", size=12)
+    if target_func == "GARNETT":
+        ax.text(27.3, 0.1, '1', color="red", size=12)
+        ax.text(15.3, -1.53, '2', color="red", size=12)
+        ax.text(28.7, -1, '3', color="red", size=12)
+        ax.text(23.7, 1.2, '4', color='red', size=12)
+        ax.text(7.65, 0.21, '5', color="red", size=12)
+        ax.text(12.2, 0.86, '6', color="red", size=12)
+        ax.text(0.1, 1.45, '7', color="red", size=12)
+        ax.text(3.8, 0.84, '8', color="red", size=12)
+        ax.text(20.3, 2.4, '9', color="red", size=12)
+        ax.text(20.8, 1.65, '10', color="red", size=12)
+        ax.text(19.7, 1.11, '11', color="red", size=12)
+        ax.text(17, 0.13, '12', color="red", size=12)
+        ax.text(8.5, 0.5, '13', color="red", size=12)
+        ax.text(2.65, 2.72, '14', color="red", size=12)
+        ax.text(1.3, 3.5, 'x=1.86', color="red", size=12)
+    else:
+        ax.text(7.80, 0.08, '1', color="red", size=12)
+        ax.text(2.80, 0.08, '2', color="red", size=12)
+        ax.text(-0.2, 0.86, '3', color="red", size=12)
+        ax.text(10.5, 1.18, '4', color="red", size=12)
+        ax.text(5.80, 1.30, '5', color="red", size=12)
+        ax.text(3.90, 0.3, 'x=4.71', color="red", size=12)
     
     ax.legend(loc="upper right", fontsize=7)
     fig.tight_layout()
-    fig.savefig("./images/raise_bo_reject_highMean.pdf")
+    
+    if target_func == "GARNETT":
+        fig.savefig("./images/raise_bo_reject_highMean_garnett.pdf")
+    else:
+        fig.savefig("./images/raise_bo_reject_highMean_triple.pdf")
 
     return 0
 
@@ -260,7 +313,7 @@ def show_reject_effect_lowMean(x_low, x_high, file_sample_task0, file_task1_stbo
 
     # Line 2: target function
     y_target = [tri_exp_mu([ele], lambda1, lambda2, lambda3, mu1, mu2, mu3, theta1, theta2, theta3) for ele in x_draw]
-    print(tri_exp_mu([7.5], lambda1, lambda2, lambda3, mu1, mu2, mu3, theta1, theta2, theta3))    
+    #print(tri_exp_mu([7.5], lambda1, lambda2, lambda3, mu1, mu2, mu3, theta1, theta2, theta3))    
     
     # Line 3: AC function
     STBO = ShapeTransferBO()
@@ -318,6 +371,109 @@ def show_reject_effect_lowMean(x_low, x_high, file_sample_task0, file_task1_stbo
 
     return 0
 
+def show_reject_effect_gp(x_low, x_high, file_task1_gp, target_func="GARNETT", lambda1=1, lambda2=1.5, lambda3=1.25,
+                        mu1=[0], mu2=[5], mu3=[10], theta1=1, theta2=1, theta3=1, kessis=[0]):
+    """illustrate the gp searching steps in 1D"""
+    x_draw = np.linspace(x_low, x_high, 100)
+
+    # Line 1: target function
+    if target_func == "GARNETT":
+        y_target = [target_garnett_function(ele) for ele in x_draw]
+    else:
+        y_target = [tri_exp_mu([ele], lambda1, lambda2, lambda3, mu1, mu2, mu3, theta1, theta2, theta3) for ele in x_draw]
+
+    # Line 2: AC function
+    EI = ExpectedImprovement()
+    EI.get_data_from_file(file_task1_gp)
+    EI.theta = 0.5
+
+    if target_func == "GARNETT":
+        low_opt1 = 0
+        high_opt1 = 30
+        lower_bound = [0]
+        upper_bound = [30]
+    else:
+        low_opt1 = -3
+        high_opt1 = 15
+        lower_bound = [-3]
+        upper_bound = [15]
+
+    start_points = [np.random.uniform(low_opt1, high_opt1, size=1).tolist() for i in range(1)]
+    next_point_ei, _ = EI.find_best_NextPoint_ei(start_points, l_bounds=lower_bound, u_bounds=upper_bound,
+                                        learn_rate=0.5, num_step=30, kessi=0.0)
+    print("next point: ", next_point_ei)
+    
+    if target_func == "GARNETT":
+        print("next value: ", target_garnett_function(next_point_ei))
+    else: 
+        print("next value: ", tri_exp_mu(next_point_ei, lambda1, lambda2, lambda3, mu1, mu2, mu3, theta1, theta2, theta3))
+
+    ac_values_lst = []
+    if isinstance(kessis, list):
+        for kessi in kessis:
+            ac_kessi = [EI.aux_func_ei([ele], kessi) for ele in x_draw]
+            ac_values_lst.append(ac_kessi)
+            x_next = 9.2
+            y_next = -1.5
+            ac_next = EI.aux_func_ei([x_next], kessis[0])
+    elif isinstance(kessis, float):
+        ac_kessi = [EI.aux_func_ei([ele], kessis) for ele in x_draw]
+        ac_values_lst.append(ac_kessi)
+        kessis = [kessis]
+
+    # Line 4: add rejection region with line
+    line_y = 0.04
+
+    # draw in one fig
+    fig, ax = plt.subplots(1, 1)
+    ax.set_title("")
+
+    ax.plot(x_draw, y_target, '--', label="target function", color="tab:orange")
+    ax.plot(EI.X, EI.Y, 'o', color="tab:red", label="observations")
+    ax.plot([x_next], [y_next], '*', label="next evaluation", markersize=10, color="tab:red")
+
+    ax.axvline(x=9.2, color='orange')
+
+    #for ac_value, kessi in zip(ac_values_lst, kessis):
+        #ax.plot(x_draw, ac_value, linestyle='dashdot', label="acquisition function", color="tab:green")
+        #ax.plot([x_next], [ac_next], '*', label="acquisition peak", markersize=10, color="tab:green")
+        # add rejection area between AC func and line_y
+    #    ac_value_adapt = [min(ele, line_y) for ele in ac_value]
+
+    # add text 
+    ax.text(27.8, -0.0, '1', color="red", size=12)
+    ax.text(26.8, 0.75, '2', color="red", size=12)
+    ax.text(25.5, 0.35, '3', color="red", size=12)
+    ax.text(26, 1.0, '4', color="red", size=12)
+    ax.text(24.3, 1.4, '5', color="red", size=12)
+    ax.text(23.25, 1.02, '6', color="red", size=12)
+    ax.text(25.2, 1.05, '7', color="red", size=12)
+    ax.text(23, 0.2, '8', color="red", size=12)
+    ax.text(22, 1.43, '9', color="red", size=12)
+    ax.text(22.3, 2.0, '10', color="red", size=12)
+    ax.text(20.9, 1.8, '11', color="red", size=12)
+    ax.text(21.22, 2.18, '12', color="red", size=12)
+    ax.text(19.2, 2.35, '13', color="red", size=12)
+    ax.text(20.3, 2.41, '14', color="red", size=12)
+    ax.text(18.5, 2.05, '15', color="red", size=12)
+    ax.text(18.0, 0.85, '16', color="red", size=12)
+    ax.text(11.4, 1.05, '17', color="red", size=12)
+    ax.text(10.3, 1.51, '18', color="red", size=12)
+    ax.text(8.7, 0.67, '19', color="red", size=12)
+    ax.text(12.7, 0.1, '20', color="red", size=12)
+    ax.text(8.0, 2, 'x=9.20', color="red", size=12)
+
+    ax.legend(loc="upper right", fontsize=7)
+    fig.tight_layout()
+
+    if target_func == "GARNETT":
+        fig.savefig("./images/raise_bo_reject_gp_garnett.pdf")
+    else:
+        fig.savefig("./images/raise_bo_reject_gp_triple.pdf")
+
+    return 0
+
+
 def show_RAISE_medium_percentile_errorbar(dct_medium_perc1, dct_medium_perc2, dct_medium_perc3, title, fig_name, means):
     "plot lines with error bar based on medium and percentile"
 
@@ -331,8 +487,12 @@ def show_RAISE_medium_percentile_errorbar(dct_medium_perc1, dct_medium_perc2, dc
     dct_medium_perc = [dct_medium_perc1, dct_medium_perc2, dct_medium_perc3]
 
     for i in range(3):
-        ax = fig.add_subplot(1, 3, i+1)
+        # if i == 0 or i == 1:
+        #     break
+
+        ax = fig.add_subplot(1, 3, i+1)  # i+1
         ax.set_title(title[i+1])
+        len_obs = 0
         for item in sorted(dct_medium_perc[i].items()):
             x_draw = np.arange(len(item[1]))
             x_draw = [ele + 1 for ele in x_draw]
@@ -340,6 +500,7 @@ def show_RAISE_medium_percentile_errorbar(dct_medium_perc1, dct_medium_perc2, dc
             y_perc25 = [ele[1] - ele[0] for ele in item[1]]
             y_perc75 = [ele[2] - ele[1] for ele in item[1]]
             asymmetric_error = [y_perc25, y_perc75]
+            len_obs = max(len(x_draw), len_obs)
 
             if "task1_mean_stbo.tsv" in item[0] and "good" in item[0]:
                 label = "RAISE BO with good prior"
@@ -401,9 +562,9 @@ def show_RAISE_medium_percentile_errorbar(dct_medium_perc1, dct_medium_perc2, dc
                 label = "RAISE BO with $\mu="+str(mean_4)+"$"
                 fmt = '--^'
                 color = "cyan"
-
+            print("medium", y_medium)
             ax.errorbar(x_draw, y_medium, yerr=asymmetric_error, label=label, fmt=fmt, color=color)
-            ax.set_xticks(np.arange(0, 21, 5))
+            ax.set_xticks(np.arange(0, 1+len_obs, 5))
         plt.legend(loc=4)
 
     plt.gcf().set_size_inches(20, 5)
@@ -414,136 +575,154 @@ def show_RAISE_medium_percentile_errorbar(dct_medium_perc1, dct_medium_perc2, dc
 
 
 if __name__ == "__main__":
-    paper_id = "raise"                # stbo / raise
+    paper_id = "raise"                # stbo | raise
 
     if paper_id == "raise":
-        topic_means = {}
-        topic_means = {"Double2Double": [0.5, 0.1, 1.0, 1.5], 
-                       "Triple2Double": [0.5, 0.1, 1.0, 1.5],
-                       "2D_forrester":  [0.5, 1.5, "Neg5", "Neg10"], 
-                       "2D_Triple2Triple": [0.5, 0.1, 1.0, 1.5],
-                       "2D_griewank": ["Neg1", "Neg0.5", "Neg1.5", "Neg2"],
-                       "2D_schwefel": ["Neg600", "Neg400", "Neg800", "Neg1000"],
-                       "2D_sixHump": ["0.1", "0.5", "Neg1", "Neg2"],
-                       "2D_branin": ["Neg50", "Neg10", "Neg100", "Neg150"],
-                       "2D_bukin": ["Neg50", "Neg20", "Neg100", "Neg200"]}
+    #     topic_means = {}
+    #     topic_means = {"10D_ackley": ["Neg15", "Neg15", "Neg15", "Neg15"],
+    #                    "10D_ackley_trans": ["Neg15", "Neg2", "Neg1", "Neg0.5"],
+    #                    "6D_levy": ["Neg20", "Neg20", "Neg20", "Neg20"],
+    #                    "6D_levy_trans": ["Neg20", "Neg5", "Neg3", "Neg1"],
+    #                    "2D_schwefel_trans": ["Neg600", "Neg600", "Neg600", "Neg600"],
+    #                    "2D_bukin_trans": ["Neg50", "Neg50", "Neg50", "Neg50"]}
 
-        num_sim = 1
-        for topic, means in topic_means.items():
-            # Simulation 1: 1D Double (Mean = 0.5)
-            good_mean = means[0]
-            mean_1 = means[1]
-            mean_2 = means[0]
-            mean_3 = means[2]
-            mean_4 = means[3]
+    #     num_sim = 1
+    #     for topic, means in topic_means.items():
+    #         # Simulation 1: 1D Double (Mean = 0.5)
+    #         good_mean = means[0]
+    #         mean_1 = means[1]
+    #         mean_2 = means[0]
+    #         mean_3 = means[2]
+    #         mean_4 = means[3]
 
-            # Left Figure: Double
-            if "2D_" in topic and "Triple" not in topic and "Double" not in topic:
-                num_prior = ""
-            else:
-                num_prior = "2"
+    #         # Left Figure: Double
+    #         if "2D_" in topic and "Triple" not in topic and "Double" not in topic:
+    #             num_prior = ""
+    #         else:
+    #             num_prior = ""
 
-            in_dir_bad_1 = "./data/"+topic+"_5sample_"+num_prior+"bad_prior_sampleMean" + str(good_mean) + "_1rF1Mean"
-            out_dir_bad_1 = "./simulation_results/" + topic + "_5sample_"+num_prior+"bad_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
+    #         if "trans" in topic:
+    #             obj_trans = True
+    #             trans_c = 1
+    #         else:
+    #             obj_trans = False
+    #             trans_c = 1
+
+    #         in_dir_bad_1 = "./data/"+topic+"_5sample_"+num_prior+"bad_prior_sampleMean" + str(good_mean) + "_1rF1Mean"
+    #         out_dir_bad_1 = "./simulation_results/" + topic + "_5sample_"+num_prior+"bad_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
     
-            in_dir_close_1 = "./data/"+topic+"_5sample_"+num_prior+"close_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
-            out_dir_close_1 = "./simulation_results/"+topic+"_5sample_"+num_prior+"close_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
+    #         in_dir_close_1 = "./data/"+topic+"_5sample_"+num_prior+"close_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
+    #         out_dir_close_1 = "./simulation_results/"+topic+"_5sample_"+num_prior+"close_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
     
-            in_dir_noprior_1 = "./data/"+topic+"_5sample_no_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
-            out_dir_noprior_1 = "./simulation_results/"+topic+"_5sample_no_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
+    #         in_dir_noprior_1 = "./data/"+topic+"_5sample_no_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
+    #         out_dir_noprior_1 = "./simulation_results/"+topic+"_5sample_no_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
     
-            print(in_dir_bad_1)
-            file_lsts1_ei = collect_file(in_dir_close_1, "gp")
-            file_lsts1_raise_close = collect_file(in_dir_close_1, "mean_stbo")
-            file_lsts1_raise_noprior = collect_file(in_dir_noprior_1, "sample_stbo")
-            file_lsts1_raise_bad = collect_file(in_dir_bad_1, "mean_stbo")
+    #         #file_lsts1_ei = collect_file(in_dir_close_1, "gp")
+    #         #file_lsts1_raise_close = collect_file(in_dir_close_1, "mean_stbo")
+    #         #file_lsts1_raise_noprior = collect_file(in_dir_noprior_1, "sample_stbo")
+    #         #file_lsts1_raise_bad = collect_file(in_dir_bad_1, "mean_stbo")
         
-            _, dct_medium_perc1_ei = run_statistics(file_lsts1_ei, out_dir_bad_1, topic="0bad")
-            _, dct_medium_perc1_close = run_statistics(file_lsts1_raise_close, out_dir_close_1, topic="1close")
-            _, dct_medium_perc1_noprior = run_statistics(file_lsts1_raise_noprior, out_dir_noprior_1, topic="2noprior")
-            _, dct_medium_perc1_bad = run_statistics(file_lsts1_raise_bad, out_dir_bad_1, topic="3bad")
+    #         #_, dct_medium_perc1_ei = run_statistics(file_lsts1_ei, out_dir_bad_1, topic="0bad", obj_trans=obj_trans, trans_c=1)
+    #         #_, dct_medium_perc1_close = run_statistics(file_lsts1_raise_close, out_dir_close_1, topic="1close", obj_trans=obj_trans, trans_c=1)
+    #         #_, dct_medium_perc1_noprior = run_statistics(file_lsts1_raise_noprior, out_dir_noprior_1, topic="2noprior", obj_trans=obj_trans, trans_c=1)
+    #         #_, dct_medium_perc1_bad = run_statistics(file_lsts1_raise_bad, out_dir_bad_1, topic="3bad", obj_trans=obj_trans, trans_c=1)
        
-            dct_1d_double = {**dct_medium_perc1_ei, **dct_medium_perc1_close, **dct_medium_perc1_noprior, **dct_medium_perc1_bad} 
+    #         #dct_1d_double = {**dct_medium_perc1_ei, **dct_medium_perc1_close, **dct_medium_perc1_noprior, **dct_medium_perc1_bad} 
     
-            # Middle Figure: fix mean = 0.5, and vary prior distances
-            in_dir_gp_2 = "./data/"+topic+"_5sample_"+num_prior+"bad_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
-            out_dir_gp_2 = "./simulation_results/"+topic+"_5sample_"+num_prior+"bad_prior_sampleMean"+str(good_mean)+"_1rF1Mean"        
+    #         # Middle Figure: fix mean = 0.5, and vary prior distances
+    #         in_dir_gp_2 = "./data/"+topic+"_5sample_"+num_prior+"bad_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
+    #         out_dir_gp_2 = "./simulation_results/"+topic+"_5sample_"+num_prior+"bad_prior_sampleMean"+str(good_mean)+"_1rF1Mean"        
     
-            in_dir_bad_2 = "./data/"+topic+"_5sample_"+num_prior+"bad_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
-            out_dir_bad_2 = "./simulation_results/"+topic+"_5sample_"+num_prior+"bad_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
+    #         in_dir_bad_2 = "./data/"+topic+"_5sample_"+num_prior+"bad_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
+    #         out_dir_bad_2 = "./simulation_results/"+topic+"_5sample_"+num_prior+"bad_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
     
-            in_dir_close_2 = "./data/"+topic+"_5sample_"+num_prior+"close_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
-            out_dir_close_2 = "./simulation_results/"+topic+"_5sample_"+num_prior+"close_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
+    #         in_dir_close_2 = "./data/"+topic+"_5sample_"+num_prior+"close_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
+    #         out_dir_close_2 = "./simulation_results/"+topic+"_5sample_"+num_prior+"close_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
     
-            in_dir_middle_2 = "./data/"+topic+"_5sample_"+num_prior+"middle_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
-            out_dir_middle_2 = "./simulation_results/"+topic+"_5sample_"+num_prior+"middle_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
+    #         in_dir_middle_2 = "./data/"+topic+"_5sample_"+num_prior+"middle_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
+    #         out_dir_middle_2 = "./simulation_results/"+topic+"_5sample_"+num_prior+"middle_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
     
-            in_dir_far_2 = "./data/"+topic+"_5sample_"+num_prior+"far_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
-            out_dir_far_2 = "./simulation_results/"+topic+"_5sample_"+num_prior+"far_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
+    #         in_dir_far_2 = "./data/"+topic+"_5sample_"+num_prior+"far_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
+    #         out_dir_far_2 = "./simulation_results/"+topic+"_5sample_"+num_prior+"far_prior_sampleMean"+str(good_mean)+"_1rF1Mean"
     
-            file_lsts2_ei = collect_file(in_dir_close_1, "gp")
-            file_lsts2_raise_close = collect_file(in_dir_close_2, "mean_stbo")
-            file_lsts2_raise_middle = collect_file(in_dir_middle_2, "mean_stbo")
-            file_lsts2_raise_far = collect_file(in_dir_far_2, "mean_stbo")
-            file_lsts2_raise_bad = collect_file(in_dir_bad_2, "mean_stbo")
+    #         #file_lsts2_ei = collect_file(in_dir_close_1, "gp")
+    #         #file_lsts2_raise_close = collect_file(in_dir_close_2, "mean_stbo")
+    #         #file_lsts2_raise_middle = collect_file(in_dir_middle_2, "mean_stbo")
+    #         #file_lsts2_raise_far = collect_file(in_dir_far_2, "mean_stbo")
+    #         #file_lsts2_raise_bad = collect_file(in_dir_bad_2, "mean_stbo")
+    # #
+    #         #_, dct_medium_perc2_ei = run_statistics(file_lsts2_ei, out_dir_gp_2, topic="0bad", obj_trans=obj_trans, trans_c=1)
+    #         #_, dct_medium_perc2_close = run_statistics(file_lsts2_raise_close, out_dir_close_2, topic="1close", obj_trans=obj_trans, trans_c=1)
+    #         #_, dct_medium_perc2_middle = run_statistics(file_lsts2_raise_middle, out_dir_middle_2, topic="2middle", obj_trans=obj_trans, trans_c=1)
+    #         #_, dct_medium_perc2_far = run_statistics(file_lsts2_raise_far, out_dir_far_2, topic="3far", obj_trans=obj_trans, trans_c=1)
+    #         #_, dct_medium_perc2_bad = run_statistics(file_lsts2_raise_bad, out_dir_bad_2, topic="4bad", obj_trans=obj_trans, trans_c=1)
+    # #
+    #         #dct_1d_var_priors = {**dct_medium_perc2_ei, **dct_medium_perc2_close, **dct_medium_perc2_middle, **dct_medium_perc2_far, **dct_medium_perc2_bad} 
     
-            _, dct_medium_perc2_ei = run_statistics(file_lsts2_ei, out_dir_gp_2, topic="0bad")
-            _, dct_medium_perc2_close = run_statistics(file_lsts2_raise_close, out_dir_close_2, topic="1close")
-            _, dct_medium_perc2_middle = run_statistics(file_lsts2_raise_middle, out_dir_middle_2, topic="2middle")
-            _, dct_medium_perc2_far = run_statistics(file_lsts2_raise_far, out_dir_far_2, topic="3far")
-            _, dct_medium_perc2_bad = run_statistics(file_lsts2_raise_bad, out_dir_bad_2, topic="4bad")
+    #         # Right Figure: varing means in no prior
+    #         in_dir_bad_3_1 = "./data/"+topic+"_5sample_no_prior_sampleMean"+str(mean_1)+"_1rF1Mean"
+    #         out_dir_bad_3_1 = "./simulation_results/"+topic+"_5sample_no_prior_sampleMean"+str(mean_1)+"_1rF1Mean"
     
-            dct_1d_var_priors = {**dct_medium_perc2_ei, **dct_medium_perc2_close, **dct_medium_perc2_middle, **dct_medium_perc2_far, **dct_medium_perc2_bad} 
+    #         in_dir_bad_3_2 = "./data/"+topic+"_5sample_no_prior_sampleMean"+str(mean_2)+"_1rF1Mean"
+    #         out_dir_bad_3_2 = "./simulation_results/"+topic+"_5sample_no_prior_sampleMean"+str(mean_2)+"_1rF1Mean"
     
-            # Right Figure: varing means in no prior
-            in_dir_bad_3_1 = "./data/"+topic+"_5sample_no_prior_sampleMean"+str(mean_1)+"_1rF1Mean"
-            out_dir_bad_3_1 = "./simulation_results/"+topic+"_5sample_no_prior_sampleMean"+str(mean_1)+"_1rF1Mean"
+    #         in_dir_bad_3_3 = "./data/"+topic+"_5sample_no_prior_sampleMean"+str(mean_3)+"_1rF1Mean"
+    #         out_dir_bad_3_3 = "./simulation_results/"+topic+"_5sample_no_prior_sampleMean"+str(mean_3)+"_1rF1Mean"
     
-            in_dir_bad_3_2 = "./data/"+topic+"_5sample_no_prior_sampleMean"+str(mean_2)+"_1rF1Mean"
-            out_dir_bad_3_2 = "./simulation_results/"+topic+"_5sample_no_prior_sampleMean"+str(mean_2)+"_1rF1Mean"
+    #         in_dir_bad_3_4 = "./data/"+topic+"_5sample_no_prior_sampleMean"+str(mean_4)+"_1rF1Mean"
+    #         out_dir_bad_3_4 = "./simulation_results/"+topic+"_5sample_no_prior_sampleMean"+str(mean_4)+"_1rF1Mean"        
     
-            in_dir_bad_3_3 = "./data/"+topic+"_5sample_no_prior_sampleMean"+str(mean_3)+"_1rF1Mean"
-            out_dir_bad_3_3 = "./simulation_results/"+topic+"_5sample_no_prior_sampleMean"+str(mean_3)+"_1rF1Mean"
+    #         file_lsts3_1 = collect_file(in_dir_bad_3_2, "gp")
+    #         file_lsts3_2 = collect_file(in_dir_bad_3_1, "sample_stbo")  # mean1
+    #         file_lsts3_3 = collect_file(in_dir_bad_3_2, "sample_stbo")  # mean2
+    #         file_lsts3_4 = collect_file(in_dir_bad_3_3, "sample_stbo")  # mean3
+    #         file_lsts3_5 = collect_file(in_dir_bad_3_4, "sample_stbo")  # mean4
     
-            in_dir_bad_3_4 = "./data/"+topic+"_5sample_no_prior_sampleMean"+str(mean_4)+"_1rF1Mean"
-            out_dir_bad_3_4 = "./simulation_results/"+topic+"_5sample_no_prior_sampleMean"+str(mean_4)+"_1rF1Mean"        
-    
-            file_lsts3_1 = collect_file(in_dir_close_1, "gp")
-            file_lsts3_2 = collect_file(in_dir_bad_3_1, "sample_stbo")  # mean1
-            file_lsts3_3 = collect_file(in_dir_bad_3_2, "sample_stbo")  # mean2
-            file_lsts3_4 = collect_file(in_dir_bad_3_3, "sample_stbo")  # mean3
-            file_lsts3_5 = collect_file(in_dir_bad_3_4, "sample_stbo")  # mean4
-    
-            _, dct_medium_perc3_ei = run_statistics(file_lsts3_1, out_dir_bad_1, topic="1_"+str(mean_1)+"_gp")
-            _, dct_medium_perc3_low = run_statistics(file_lsts3_2, out_dir_bad_3_1, topic="2_"+str(mean_1)+"_low")
-            _, dct_medium_perc3_mid1 = run_statistics(file_lsts3_3, out_dir_bad_3_2, topic="3_"+str(mean_2)+"_center")
-            _, dct_medium_perc3_mid2 = run_statistics(file_lsts3_4, out_dir_bad_3_3, topic="4_"+str(mean_3)+"_center")
-            _, dct_medium_perc3_high = run_statistics(file_lsts3_5, out_dir_bad_3_4, topic="5_"+str(mean_4)+"_high")
+    #         _, dct_medium_perc3_ei = run_statistics(file_lsts3_1, out_dir_bad_1, topic="1_"+str(mean_1)+"_gp", obj_trans=obj_trans, trans_c=1)
+    #         _, dct_medium_perc3_low = run_statistics(file_lsts3_2, out_dir_bad_3_1, topic="2_"+str(mean_1)+"_low", obj_trans=obj_trans, trans_c=1)
+    #         _, dct_medium_perc3_mid1 = run_statistics(file_lsts3_3, out_dir_bad_3_2, topic="3_"+str(mean_2)+"_center", obj_trans=obj_trans, trans_c=1)
+    #         _, dct_medium_perc3_mid2 = run_statistics(file_lsts3_4, out_dir_bad_3_3, topic="4_"+str(mean_3)+"_center", obj_trans=obj_trans, trans_c=1)
+    #         _, dct_medium_perc3_high = run_statistics(file_lsts3_5, out_dir_bad_3_4, topic="5_"+str(mean_4)+"_high", obj_trans=obj_trans, trans_c=1)
 
-            dct_1d_bad_var_means = {**dct_medium_perc3_ei, **dct_medium_perc3_low, **dct_medium_perc3_mid1, **dct_medium_perc3_mid2, **dct_medium_perc3_high} 
-    
-            if "2D" not in topic:
-                fig_name_medium = "./images/raiseBO_1D_"+topic+"_paper.pdf"
-            else:
-                fig_name_medium = "./images/raiseBO_"+topic+"_paper.pdf"
+    #         dct_1d_bad_var_means = {**dct_medium_perc3_ei, **dct_medium_perc3_low, **dct_medium_perc3_mid1, **dct_medium_perc3_mid2, **dct_medium_perc3_high} 
 
-            if "Neg" in str(good_mean):
-                good_mean = str(good_mean)
-                good_mean = "-" + good_mean.split("Neg")[-1]
+    #         if "2D" not in topic:
+    #             fig_name_medium = "./images/raiseBO_1D_"+topic+"_paper.pdf"
+    #         else:
+    #             fig_name_medium = "./images/raiseBO_"+topic+"_paper.pdf"
 
-            title = ["Simulation "+str(num_sim)+": 2-dimensional target function with triple modals", "$\mu="+str(good_mean)+"$", "$\mu="+str(good_mean)+"$", "without prior"]
-            show_RAISE_medium_percentile_errorbar(dct_1d_double, dct_1d_var_priors, dct_1d_bad_var_means, title, fig_name=fig_name_medium, means=[mean_1, mean_2, mean_3, mean_4])
-            num_sim += 1
+    #         if "Neg" in str(good_mean):
+    #             good_mean = str(good_mean)
+    #             good_mean = "-" + good_mean.split("Neg")[-1]
+
+    #         title = ["Simulation "+str(num_sim)+": 2-dimensional target function with triple modals", "$\mu="+str(good_mean)+"$", "$\mu="+str(good_mean)+"$", "without prior"]
+
+    #         # del
+    #         dct_1d_double = dct_1d_bad_var_means
+    #         dct_1d_var_priors=dct_1d_bad_var_means
+    #         show_RAISE_medium_percentile_errorbar(dct_1d_double, dct_1d_var_priors, dct_1d_bad_var_means, title, fig_name=fig_name_medium, means=[mean_1, mean_2, mean_3, mean_4])
+    #         num_sim += 1
 
         # rejection effect
-        file_sample_task0_high = "./data/Triple2Double_5sample_2bad_prior_sampleMean1.1_1rF1Mean/simTriple2Double_points_task0_mean.tsv"
-        file_task1_stbo_high = "./data/Triple2Double_5sample_2bad_prior_sampleMean1.1_1rF1Mean/simTriple2Double_points_task1_mean_stbo_draw.tsv"
+        Target_FUN = "GARNETT" # "TRIPLE"
 
-        #file_sample_task0_low = "./data/Triple2Double_5sample_2bad_prior_sampleMean0.5_1rF1Mean/13/simTriple2Double_points_task0_mean.tsv"
-        #file_task1_stbo_low = "./data/Triple2Double_5sample_2bad_prior_sampleMean0.5_1rF1Mean/13/simTriple2Double_points_task1_mean_stbo_draw.tsv"        
+        if Target_FUN == "TRIPLE":
+            file_sample_task0_high = "./data/Triple2Double_5sample_2bad_prior_sampleMean1.1_1rF1Mean/simTriple2Double_points_task0_mean.tsv"
+            file_task1_stbo_high = "./data/Triple2Double_5sample_2bad_prior_sampleMean1.1_1rF1Mean/simTriple2Double_points_task1_mean_stbo_draw.tsv"
+            file_task1_gp = "./data/Triple2Double_5sample_2bad_prior_sampleMean1.1_1rF1Mean/simTriple2Double_points_task1_gp_draw.tsv"
+            #file_sample_task0_low = "./data/Triple2Double_5sample_2bad_prior_sampleMean0.5_1rF1Mean/13/simTriple2Double_points_task0_mean.tsv"
+            #file_task1_stbo_low = "./data/Triple2Double_5sample_2bad_prior_sampleMean0.5_1rF1Mean/13/simTriple2Double_points_task1_mean_stbo_draw.tsv"        
         
-        show_reject_effect_highMean(-3.2, 14.8, file_sample_task0_high, file_task1_stbo_high)
-        #show_reject_effect_lowMean(-2.8, 14.3, file_sample_task0_low, file_task1_stbo_low)
+            show_reject_effect_highMean(-3.2, 14.8, file_sample_task0_high, file_task1_stbo_high, target_func="TRIPLE")
+            #show_reject_effect_lowMean(-2.8, 14.3, file_sample_task0_low, file_task1_stbo_low)
+            show_reject_effect_gp(-3.2, 14.8, file_task1_gp, target_func="TRIPLE")
+        elif Target_FUN == "GARNETT":
+            file_sample_task0_high = "./data/Garnett_5sample_2bad_prior_sampleMean1.1_1rF1Mean/simGarnett_points_task0_mean.tsv"
+            file_task1_stbo_high = "./data/Garnett_5sample_2bad_prior_sampleMean1.1_1rF1Mean/simGarnett_points_task1_mean_stbo_draw.tsv"
+            file_task1_gp = "./data/Garnett_5sample_2bad_prior_sampleMean1.1_1rF1Mean/simGarnett_points_task1_gp_draw.tsv"            
+            #show_reject_effect_gp(0, 30, file_task1_gp, target_func="GARNETT")
+            show_reject_effect_highMean(0, 30, file_sample_task0_high, file_task1_stbo_high, target_func="GARNETT")
+
     elif paper_id == "stbo":
         # Exponential family
         size = 4

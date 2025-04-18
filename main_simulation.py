@@ -1,4 +1,4 @@
-#!/usr/bin/env /user_names/python3
+#!/usr/bin/env /mnt/users/daijun_chen/tools/miniconda3.10/install/envs/python3_huggingface/bin/python3
 
 import argparse, os, sys, logging
 import numpy as np
@@ -12,7 +12,7 @@ from optimization import BiasCorrectedBO
 from optimization import ShapeTransferBO
 
 from simfun import exp_mu, branin, mod_branin, needle_func, mono_func, two_exp_mu, tri_exp_mu
-from simfun import ackley, bukin, bohachevsky, booth, griewank, schwefel, rotate_hyper, matyas, six_hump, forrester
+from simfun import ackley, ackley_10d, levy_6d, bukin, bohachevsky, booth, griewank, schwefel, rotate_hyper, matyas, six_hump, forrester, target_garnett_function
 from utils import write_exp_result, get_best_point
 
 
@@ -20,11 +20,11 @@ def arg_parser():
     "parse the arguments"
     argparser = argparse.ArgumentParser(description="run simulation to compare 3 methods, ZeroGProcess, BCBO and STBO")
     argparser.add_argument("--type", default="EXP", choices=["EXP", "BR", "NEEDLE", "MONO2NEEDLE", "MONO2DOUBLE", "DOUBLE2DOUBLE",
-    "TRIPLE2DOUBLE", "DOUBLE2TRIPLE", "TRIPLE2TRIPLE_2D", "DOUBLE2DOUBLE_2D", "ACKLEY", "BUKIN", "BOHACH", "BOOTH", "GRIEWANK", 
-    "SCHWEFEL", "ROTATE_HYPER", "MATYAS", "SIX_HUMP", "FORRESTER"], help="choose target function type")
+    "TRIPLE2DOUBLE", "DOUBLE2TRIPLE", "TRIPLE2TRIPLE_2D", "DOUBLE2DOUBLE_2D", "ACKLEY", "ACKLEY_10D", "TRANS_ACKLEY_10D", "LEVY_6D", "TRANS_LEVY_6D", "BUKIN", "TRANS_BUKIN", "BOHACH", "BOOTH", "GRIEWANK", 
+    "SCHWEFEL", "TRANS_SCHWEFEL", "ROTATE_HYPER", "MATYAS", "SIX_HUMP", "FORRESTER", "GARNETT"], help="choose target function type")
 
     # arguments for EXP type only
-    argparser.add_argument("--theta", default="1.0", help="shape parameter in tyep EXP")
+    argparser.add_argument("--theta", default="1.0", help="shape parameter in type EXP")
     argparser.add_argument("--mu1", default="0.0_0.0", help="scale parameter of target function 1 in type EXP")
     argparser.add_argument("--mu2", default="0.5_0.5", help="scale parameter of target function 2 in type EXP")
 
@@ -44,7 +44,7 @@ def arg_parser():
 
 def main_experiment(num_exp1, num_exp2, task2_from_gp=True, num_start_opt1=30, low_opt1=-5, high_opt1=5, lr1=0.5, num_steps_opt1=30, kessi_1=0.0, 
              file_1_gp="f1_gp.tsv", file_1_rand="f1_rand.tsv", file_1_sample="f1_sample.tsv", file_1_mean="f1_mean.tsv", 
-             file_1_sample_stbo="f1_sample_stbo.tsv", file_1_mean_stbo="f1_mean_stbo.tsv",  
+             file_1_sample_stbo="f1_sample_stbo.tsv", file_1_mean_stbo="f1_mean_stbo.tsv", fun_transform=False, transform_c=1, 
              num_start_opt2=50, low_opt2=-5, high_opt2=10, lr2=0.5, num_steps_opt2=100, kessi_2=0.0, 
              file_2_gp="f2_gp.tsv", file_2_gp_cold="f2_gp_cold.tsv", file_2_stbo="f2_stbo.tsv", file_2_bcbo="f2_bcbo.tsv", fun_type="EXP"):
     """
@@ -133,6 +133,12 @@ def main_experiment(num_exp1, num_exp2, task2_from_gp=True, num_start_opt1=30, l
         dim = 2
     elif fun_type == "FORRESTER":
         dim = 1
+    elif fun_type == "ACKLEY_10D":
+        dim = 10
+    elif fun_type == "LEVY_6D":
+        dim = 6
+    elif fun_type == "GARNETT":
+        dim = 1
     else:
         raise(TypeError)
 
@@ -157,8 +163,8 @@ def main_experiment(num_exp1, num_exp2, task2_from_gp=True, num_start_opt1=30, l
 
         # Method 3 in task 1: GP-based Sampling STBO
         # stage 1: sampling from Gaussian Process
-        num_sample = 5
-        mean_sample = 0.5
+        num_sample = 8
+        mean_sample = 2       # np.exp(-20)
         sigma_sample = 0.01
 
         zeroGP = ZeroGProcess()
@@ -180,7 +186,7 @@ def main_experiment(num_exp1, num_exp2, task2_from_gp=True, num_start_opt1=30, l
             #prior_pnts = [([1.0], 1.2), ([6.0], 1.2)]  # far
             #prior_pnts = [([2.5], 1.2), ([7.5], 1.2)]  # bad
             prior_pnts = [] # no prior
-        elif fun_type == "DOUBLE2TRIPLE":
+        elif fun_type == "DOUBLE2TRIPL":
             #prior_pnts = [([0.2], 1.2), ([5.2], 0.8), ([9.8], 1.2)]
             #prior_pnts = [([0.5], 1.2), ([5.5], 0.8), ([4.5], 1.2)]
             #prior_pnts = [([0.8], 1.2), ([5.8], 0.8), ([4.2], 1.2)]
@@ -205,12 +211,27 @@ def main_experiment(num_exp1, num_exp2, task2_from_gp=True, num_start_opt1=30, l
             #prior_pnts = [([2.5, 2.5], 1.05)]          # far
             #prior_pnts = [([10, 10], 1.05)]            # bad
             prior_pnts = []                             # no
+        elif fun_type == "ACKLEY_10D":
+            #prior_pnts = [([0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5], 1.05)]          # close
+            #prior_pnts = [([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], 1.05)]          # middle
+            #prior_pnts = [([1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5], 1.05)]          # far
+            #prior_pnts = [([4, 4, 4, 4, 4, 4, 4, 4, 4, 4], 1.05)]                              # bad
+            prior_pnts = []                                                                    # no        
+        elif fun_type == "LEVY_6D":
+            #prior_pnts = [([1.5, 1.5, 1.5, 1.5, 1.5, 1.5], 1.05)]          # close
+            #prior_pnts = [([2.0, 2.0, 2.0, 2.0, 2.0, 2.0], 1.05)]          # middle
+            #prior_pnts = [([2.5, 2.5, 2.5, 2.5, 2.5, 2.5], 1.05)]          # far
+            #prior_pnts = [([5.0, 5.0, 5.0, 5.0, 5.0, 5.0], 1.05)]          # bad
+            prior_pnts = []                                                 # no
+        elif fun_type == "GARNETT":
+            prior_pnts = [([15], 1.05), ([27], 1.05)]          # bad
+            #prior_pnts = []                                                 # no                            
         elif fun_type == "BUKIN":
             #prior_pnts = [([-10, 1.5], 1.05)]         # close
             #prior_pnts = [([-10, 2], 1.05)]           # middle
             #prior_pnts = [([-10, 2.5], 1.05)]         # far
-            prior_pnts = [([-5, 1.5], 1.05)]           # bad
-            #prior_pnts = []                              # no            
+            #prior_pnts = [([-5, 1.5], 1.05)]           # bad
+            prior_pnts = []                             # no            
         elif fun_type == "BOHACH":
             #prior_pnts = [([0.5, 0.5], 1.05)]          # close
             #prior_pnts = [([1.5, 1.5], 1.05)]          # middle
@@ -314,10 +335,22 @@ def main_experiment(num_exp1, num_exp2, task2_from_gp=True, num_start_opt1=30, l
             init_res_1 = ackley(init_point_1)
             res1_point_exp0_sample = ackley(best_point_exp0_sample)
             res1_point_exp0_mean = ackley(best_point_exp0_mean)  
+        elif fun_type == "ACKLEY_10D":
+            init_res_1 = ackley_10d(init_point_1, fun_transform, transform_c)
+            res1_point_exp0_sample = ackley_10d(best_point_exp0_sample, fun_transform, transform_c)
+            res1_point_exp0_mean = ackley_10d(best_point_exp0_mean, fun_transform, transform_c)      
+        elif fun_type == "LEVY_6D":
+            init_res_1 = levy_6d(init_point_1, fun_transform, transform_c)
+            res1_point_exp0_sample = levy_6d(best_point_exp0_sample, fun_transform, transform_c)
+            res1_point_exp0_mean = levy_6d(best_point_exp0_mean, fun_transform, transform_c)
+        elif fun_type == "GARNETT":
+            init_res_1 = target_garnett_function(init_point_1)[0]
+            res1_point_exp0_sample = target_garnett_function(best_point_exp0_sample)[0] 
+            res1_point_exp0_mean = target_garnett_function(best_point_exp0_mean)[0]           
         elif fun_type == "BUKIN":
-            init_res_1 = bukin(init_point_1)
-            res1_point_exp0_sample = bukin(best_point_exp0_sample)
-            res1_point_exp0_mean = bukin(best_point_exp0_mean)  
+            init_res_1 = bukin(init_point_1, fun_transform, transform_c)
+            res1_point_exp0_sample = bukin(best_point_exp0_sample, fun_transform, transform_c)
+            res1_point_exp0_mean = bukin(best_point_exp0_mean, fun_transform, transform_c)  
         elif fun_type == "BOHACH":
             init_res_1 = bohachevsky(init_point_1)
             res1_point_exp0_sample = bohachevsky(best_point_exp0_sample)
@@ -331,9 +364,9 @@ def main_experiment(num_exp1, num_exp2, task2_from_gp=True, num_start_opt1=30, l
             res1_point_exp0_sample = griewank(best_point_exp0_sample)
             res1_point_exp0_mean = griewank(best_point_exp0_mean)
         elif fun_type == "SCHWEFEL":
-            init_res_1 = schwefel(init_point_1)
-            res1_point_exp0_sample = schwefel(best_point_exp0_sample)
-            res1_point_exp0_mean = schwefel(best_point_exp0_mean)  
+            init_res_1 = schwefel(init_point_1, fun_transform, transform_c)
+            res1_point_exp0_sample = schwefel(best_point_exp0_sample, fun_transform, transform_c)
+            res1_point_exp0_mean = schwefel(best_point_exp0_mean, fun_transform, transform_c)  
         elif fun_type == "ROTATE_HYPER":
             init_res_1 = rotate_hyper(init_point_1)
             res1_point_exp0_sample = rotate_hyper(best_point_exp0_sample)
@@ -372,8 +405,12 @@ def main_experiment(num_exp1, num_exp2, task2_from_gp=True, num_start_opt1=30, l
 
                 # Method 2: ZeroGProcess model with EI
                 EI = ExpectedImprovement()
+                
+                if fun_type == "GARNETT":
+                    EI.theta = 0.1
+                
                 EI.get_data_from_file(file_1_gp)
-
+                
                 next_point_ei, _ = EI.find_best_NextPoint_ei(start_points, l_bounds=lower_bound, u_bounds=upper_bound,
                                                             learn_rate=lr1, num_step=num_steps_opt1, kessi=kessi_1)
 
@@ -451,11 +488,26 @@ def main_experiment(num_exp1, num_exp2, task2_from_gp=True, num_start_opt1=30, l
                     next_response_ei     = ackley(next_point_ei)
                     next_response_stbo1_sample  = ackley(next_point_stbo1_sample)
                     next_response_stbo1_mean  = ackley(next_point_stbo1_mean)
+                elif fun_type == "ACKLEY_10D":
+                    next_response_rand   = ackley_10d(next_point_rand, fun_transform, transform_c)
+                    next_response_ei     = ackley_10d(next_point_ei, fun_transform, transform_c)
+                    next_response_stbo1_sample  = ackley_10d(next_point_stbo1_sample, fun_transform, transform_c)
+                    next_response_stbo1_mean  = ackley_10d(next_point_stbo1_mean, fun_transform, transform_c)
+                elif fun_type == "LEVY_6D":
+                    next_response_rand   = levy_6d(next_point_rand, fun_transform, transform_c)
+                    next_response_ei     = levy_6d(next_point_ei, fun_transform, transform_c)
+                    next_response_stbo1_sample  = levy_6d(next_point_stbo1_sample, fun_transform, transform_c)
+                    next_response_stbo1_mean  = levy_6d(next_point_stbo1_mean, fun_transform, transform_c)
+                elif fun_type == "GARNETT":
+                    next_response_rand   = target_garnett_function(next_point_rand)[0]
+                    next_response_ei     = target_garnett_function(next_point_ei)[0]
+                    next_response_stbo1_sample  = target_garnett_function(next_point_stbo1_sample)[0]
+                    next_response_stbo1_mean  = target_garnett_function(next_point_stbo1_mean)[0]                    
                 elif fun_type == "BUKIN":
-                    next_response_rand   = bukin(next_point_rand)
-                    next_response_ei     = bukin(next_point_ei)
-                    next_response_stbo1_sample  = bukin(next_point_stbo1_sample)
-                    next_response_stbo1_mean  = bukin(next_point_stbo1_mean)
+                    next_response_rand   = bukin(next_point_rand, fun_transform, transform_c)
+                    next_response_ei     = bukin(next_point_ei, fun_transform, transform_c)
+                    next_response_stbo1_sample  = bukin(next_point_stbo1_sample, fun_transform, transform_c)
+                    next_response_stbo1_mean  = bukin(next_point_stbo1_mean, fun_transform, transform_c)
                 elif fun_type == "BOHACH":
                     next_response_rand   = bohachevsky(next_point_rand)
                     next_response_ei     = bohachevsky(next_point_ei)
@@ -472,10 +524,10 @@ def main_experiment(num_exp1, num_exp2, task2_from_gp=True, num_start_opt1=30, l
                     next_response_stbo1_sample  = griewank(next_point_stbo1_sample)
                     next_response_stbo1_mean  = griewank(next_point_stbo1_mean)      
                 elif fun_type == "SCHWEFEL":
-                    next_response_rand   = schwefel(next_point_rand)
-                    next_response_ei     = schwefel(next_point_ei)
-                    next_response_stbo1_sample  = schwefel(next_point_stbo1_sample)
-                    next_response_stbo1_mean  = schwefel(next_point_stbo1_mean)   
+                    next_response_rand   = schwefel(next_point_rand, fun_transform, transform_c)
+                    next_response_ei     = schwefel(next_point_ei, fun_transform, transform_c)
+                    next_response_stbo1_sample  = schwefel(next_point_stbo1_sample, fun_transform, transform_c)
+                    next_response_stbo1_mean  = schwefel(next_point_stbo1_mean, fun_transform, transform_c)   
                 elif fun_type == "ROTATE_HYPER":
                     next_response_rand   = rotate_hyper(next_point_rand)
                     next_response_ei     = rotate_hyper(next_point_ei)
@@ -999,6 +1051,122 @@ if __name__ == "__main__":
                 fun_type="ACKLEY", low_opt2=low_opt2, high_opt2=high_opt2, file_2_gp=f2_gp, file_2_gp_cold=f2_gp_cold, 
                 file_2_stbo=f2_stbo, file_2_bcbo=f2_bcbo)
         
+    elif fun_type == "ACKLEY_10D":
+        f1_gp = os.path.join(out_dir, "simAckley_10d_points_task1_gp.tsv")
+        f1_rand = os.path.join(out_dir, "simAckley_10d_points_task1_rand.tsv")
+        f1_sample = os.path.join(out_dir, "simAckley_10d_points_task0_sample.tsv")
+        f1_mean = os.path.join(out_dir, "simAckley_10d_points_task0_mean.tsv")
+        f1_sample_stbo = os.path.join(out_dir, "simAckley_10d_points_task1_sample_stbo.tsv")
+        f1_mean_stbo = os.path.join(out_dir, "simAckley_10d_points_task1_mean_stbo.tsv")
+
+        f2_gp = os.path.join(out_dir, "simAckley_10d_points_task2_gp" + "_from_" + task2_start_from + ".tsv")
+        f2_gp_cold = os.path.join(out_dir, "simAckley_10d_points_task2_gp" + "_from_cold" + ".tsv")
+        f2_stbo = os.path.join(out_dir, "simAckley_10d_points_task2_stbo" + "_from_" + task2_start_from + ".tsv")
+        f2_bcbo = os.path.join(out_dir, "simAckley_10d_points_task2_bcbo" + "_from_" + task2_start_from + ".tsv")
+
+        low_opt1 = -20
+        high_opt1 = 20
+        low_opt2 = -20
+        high_opt2 = 20
+
+        main_experiment(T1, T2, task2_from_gp, low_opt1=low_opt1, high_opt1=high_opt1, file_1_gp=f1_gp, file_1_rand=f1_rand, 
+                file_1_sample=f1_sample, file_1_mean=f1_mean, file_1_sample_stbo=f1_sample_stbo, file_1_mean_stbo=f1_mean_stbo,
+                fun_type="ACKLEY_10D", low_opt2=low_opt2, high_opt2=high_opt2, file_2_gp=f2_gp, file_2_gp_cold=f2_gp_cold, 
+                file_2_stbo=f2_stbo, file_2_bcbo=f2_bcbo)
+    
+    elif fun_type == "TRANS_ACKLEY_10D":
+        f1_gp = os.path.join(out_dir, "simTransAckley_10d_points_task1_gp.tsv")
+        f1_rand = os.path.join(out_dir, "simTransAckley_10d_points_task1_rand.tsv")
+        f1_sample = os.path.join(out_dir, "simTransAckley_10d_points_task0_sample.tsv")
+        f1_mean = os.path.join(out_dir, "simTransAckley_10d_points_task0_mean.tsv")
+        f1_sample_stbo = os.path.join(out_dir, "simTransAckley_10d_points_task1_sample_stbo.tsv")
+        f1_mean_stbo = os.path.join(out_dir, "simTransAckley_10d_points_task1_mean_stbo.tsv")
+
+        f2_gp = os.path.join(out_dir, "simTransAckley_10d_points_task2_gp" + "_from_" + task2_start_from + ".tsv")
+        f2_gp_cold = os.path.join(out_dir, "simTransAckley_10d_points_task2_gp" + "_from_cold" + ".tsv")
+        f2_stbo = os.path.join(out_dir, "simTransAckley_10d_points_task2_stbo" + "_from_" + task2_start_from + ".tsv")
+        f2_bcbo = os.path.join(out_dir, "simTransAckley_10d_points_task2_bcbo" + "_from_" + task2_start_from + ".tsv")
+
+        low_opt1 = -20
+        high_opt1 = 20
+        low_opt2 = -20
+        high_opt2 = 20
+
+        main_experiment(T1, T2, task2_from_gp, low_opt1=low_opt1, high_opt1=high_opt1, file_1_gp=f1_gp, file_1_rand=f1_rand, 
+                file_1_sample=f1_sample, file_1_mean=f1_mean, file_1_sample_stbo=f1_sample_stbo, file_1_mean_stbo=f1_mean_stbo,
+                fun_type="ACKLEY_10D", fun_transform=True, transform_c=1, low_opt2=low_opt2, high_opt2=high_opt2, file_2_gp=f2_gp, file_2_gp_cold=f2_gp_cold, 
+                file_2_stbo=f2_stbo, file_2_bcbo=f2_bcbo)
+
+    elif fun_type == "LEVY_6D":
+        f1_gp = os.path.join(out_dir, "simLevy_6d_points_task1_gp.tsv")
+        f1_rand = os.path.join(out_dir, "simLevy_6d_points_task1_rand.tsv")
+        f1_sample = os.path.join(out_dir, "simLevy_6d_points_task0_sample.tsv")
+        f1_mean = os.path.join(out_dir, "simLevy_6d_points_task0_mean.tsv")
+        f1_sample_stbo = os.path.join(out_dir, "simLevy_6d_points_task1_sample_stbo.tsv")
+        f1_mean_stbo = os.path.join(out_dir, "simLevy_6d_points_task1_mean_stbo.tsv")
+
+        f2_gp = os.path.join(out_dir, "simLevy_6d_points_task2_gp" + "_from_" + task2_start_from + ".tsv")
+        f2_gp_cold = os.path.join(out_dir, "simLevy_6d_points_task2_gp" + "_from_cold" + ".tsv")
+        f2_stbo = os.path.join(out_dir, "simLevy_6d_points_task2_stbo" + "_from_" + task2_start_from + ".tsv")
+        f2_bcbo = os.path.join(out_dir, "simLevy_6d_points_task2_bcbo" + "_from_" + task2_start_from + ".tsv")
+
+        low_opt1 = -10
+        high_opt1 = 10
+        low_opt2 = -10
+        high_opt2 = 10
+
+        main_experiment(T1, T2, task2_from_gp, low_opt1=low_opt1, high_opt1=high_opt1, file_1_gp=f1_gp, file_1_rand=f1_rand, 
+                file_1_sample=f1_sample, file_1_mean=f1_mean, file_1_sample_stbo=f1_sample_stbo, file_1_mean_stbo=f1_mean_stbo,
+                fun_type="LEVY_6D", low_opt2=low_opt2, high_opt2=high_opt2, file_2_gp=f2_gp, file_2_gp_cold=f2_gp_cold, 
+                file_2_stbo=f2_stbo, file_2_bcbo=f2_bcbo)
+
+    elif fun_type == "TRANS_LEVY_6D":
+        f1_gp = os.path.join(out_dir, "simTransLevy_6d_points_task1_gp.tsv")
+        f1_rand = os.path.join(out_dir, "simTransLevy_6d_points_task1_rand.tsv")
+        f1_sample = os.path.join(out_dir, "simTransLevy_6d_points_task0_sample.tsv")
+        f1_mean = os.path.join(out_dir, "simTransLevy_6d_points_task0_mean.tsv")
+        f1_sample_stbo = os.path.join(out_dir, "simTransLevy_6d_points_task1_sample_stbo.tsv")
+        f1_mean_stbo = os.path.join(out_dir, "simTransLevy_6d_points_task1_mean_stbo.tsv")
+
+        f2_gp = os.path.join(out_dir, "simTransLevy_6d_points_task2_gp" + "_from_" + task2_start_from + ".tsv")
+        f2_gp_cold = os.path.join(out_dir, "simTransLevy_6d_points_task2_gp" + "_from_cold" + ".tsv")
+        f2_stbo = os.path.join(out_dir, "simTransLevy_6d_points_task2_stbo" + "_from_" + task2_start_from + ".tsv")
+        f2_bcbo = os.path.join(out_dir, "simTransLevy_6d_points_task2_bcbo" + "_from_" + task2_start_from + ".tsv")
+
+        low_opt1 = -10
+        high_opt1 = 10
+        low_opt2 = -10
+        high_opt2 = 10
+
+        main_experiment(T1, T2, task2_from_gp, low_opt1=low_opt1, high_opt1=high_opt1, file_1_gp=f1_gp, file_1_rand=f1_rand, 
+                file_1_sample=f1_sample, file_1_mean=f1_mean, file_1_sample_stbo=f1_sample_stbo, file_1_mean_stbo=f1_mean_stbo,
+                fun_type="LEVY_6D", fun_transform=True, transform_c=1, low_opt2=low_opt2, high_opt2=high_opt2, file_2_gp=f2_gp, file_2_gp_cold=f2_gp_cold, 
+                file_2_stbo=f2_stbo, file_2_bcbo=f2_bcbo)
+
+    # add Garnett
+    elif fun_type == "GARNETT":
+        f1_gp = os.path.join(out_dir, "simGarnett_points_task1_gp.tsv")
+        f1_rand = os.path.join(out_dir, "simGarnett_points_task1_rand.tsv")
+        f1_sample = os.path.join(out_dir, "simGarnett_points_task0_sample.tsv")
+        f1_mean = os.path.join(out_dir, "simGarnett_points_task0_mean.tsv")
+        f1_sample_stbo = os.path.join(out_dir, "simGarnett_points_task1_sample_stbo.tsv")
+        f1_mean_stbo = os.path.join(out_dir, "simGarnett_points_task1_mean_stbo.tsv")
+
+        f2_gp = os.path.join(out_dir, "simGarnett_points_task2_gp" + "_from_" + task2_start_from + ".tsv")
+        f2_gp_cold = os.path.join(out_dir, "simGarnett_points_task2_gp" + "_from_cold" + ".tsv")
+        f2_stbo = os.path.join(out_dir, "simGarnett_points_task2_stbo" + "_from_" + task2_start_from + ".tsv")
+        f2_bcbo = os.path.join(out_dir, "simGarnett_points_task2_bcbo" + "_from_" + task2_start_from + ".tsv")
+
+        low_opt1 = 0
+        high_opt1 = 30
+        low_opt2 = 0
+        high_opt2 = 30
+
+        main_experiment(T1, T2, task2_from_gp, low_opt1=low_opt1, high_opt1=high_opt1, file_1_gp=f1_gp, file_1_rand=f1_rand, 
+                file_1_sample=f1_sample, file_1_mean=f1_mean, file_1_sample_stbo=f1_sample_stbo, file_1_mean_stbo=f1_mean_stbo,
+                fun_type="GARNETT", low_opt2=low_opt2, high_opt2=high_opt2, file_2_gp=f2_gp, file_2_gp_cold=f2_gp_cold, 
+                file_2_stbo=f2_stbo, file_2_bcbo=f2_bcbo)
+
     elif fun_type == "BUKIN":
         f1_gp = os.path.join(out_dir, "simBukin_points_task1_gp.tsv")
         f1_rand = os.path.join(out_dir, "simBukin_points_task1_rand.tsv")
@@ -1020,6 +1188,29 @@ if __name__ == "__main__":
         main_experiment(T1, T2, task2_from_gp, low_opt1=low_opt1, high_opt1=high_opt1, file_1_gp=f1_gp, file_1_rand=f1_rand, 
                 file_1_sample=f1_sample, file_1_mean=f1_mean, file_1_sample_stbo=f1_sample_stbo, file_1_mean_stbo=f1_mean_stbo,
                 fun_type="BUKIN", low_opt2=low_opt2, high_opt2=high_opt2, file_2_gp=f2_gp, file_2_gp_cold=f2_gp_cold, 
+                file_2_stbo=f2_stbo, file_2_bcbo=f2_bcbo)
+
+    elif fun_type == "TRANS_BUKIN":
+        f1_gp = os.path.join(out_dir, "simTransBukin_points_task1_gp.tsv")
+        f1_rand = os.path.join(out_dir, "simTransBukin_points_task1_rand.tsv")
+        f1_sample = os.path.join(out_dir, "simTransBukin_points_task0_sample.tsv")
+        f1_mean = os.path.join(out_dir, "simTransBukin_points_task0_mean.tsv")
+        f1_sample_stbo = os.path.join(out_dir, "simTransBukin_points_task1_sample_stbo.tsv")
+        f1_mean_stbo = os.path.join(out_dir, "simTransBukin_points_task1_mean_stbo.tsv")
+
+        f2_gp = os.path.join(out_dir, "simTransBukin_points_task2_gp" + "_from_" + task2_start_from + ".tsv")
+        f2_gp_cold = os.path.join(out_dir, "simTransBukin_points_task2_gp" + "_from_cold" + ".tsv")
+        f2_stbo = os.path.join(out_dir, "simTransBukin_points_task2_stbo" + "_from_" + task2_start_from + ".tsv")
+        f2_bcbo = os.path.join(out_dir, "simTransBukin_points_task2_bcbo" + "_from_" + task2_start_from + ".tsv")
+
+        low_opt1 = -12
+        high_opt1 = 3
+        low_opt2 = -12
+        high_opt2 = 3
+
+        main_experiment(T1, T2, task2_from_gp, low_opt1=low_opt1, high_opt1=high_opt1, file_1_gp=f1_gp, file_1_rand=f1_rand, 
+                file_1_sample=f1_sample, file_1_mean=f1_mean, file_1_sample_stbo=f1_sample_stbo, file_1_mean_stbo=f1_mean_stbo,
+                fun_type="BUKIN", fun_transform=True, transform_c=1, low_opt2=low_opt2, high_opt2=high_opt2, file_2_gp=f2_gp, file_2_gp_cold=f2_gp_cold, 
                 file_2_stbo=f2_stbo, file_2_bcbo=f2_bcbo)
 
     elif fun_type == "BOHACH":
@@ -1112,6 +1303,29 @@ if __name__ == "__main__":
         main_experiment(T1, T2, task2_from_gp, low_opt1=low_opt1, high_opt1=high_opt1, file_1_gp=f1_gp, file_1_rand=f1_rand, 
                 file_1_sample=f1_sample, file_1_mean=f1_mean, file_1_sample_stbo=f1_sample_stbo, file_1_mean_stbo=f1_mean_stbo,
                 fun_type="SCHWEFEL", low_opt2=low_opt2, high_opt2=high_opt2, file_2_gp=f2_gp, file_2_gp_cold=f2_gp_cold, 
+                file_2_stbo=f2_stbo, file_2_bcbo=f2_bcbo)
+
+    elif fun_type == "TRANS_SCHWEFEL":
+        f1_gp = os.path.join(out_dir, "simTransSchwefel_points_task1_gp.tsv")
+        f1_rand = os.path.join(out_dir, "simTransSchwefel_points_task1_rand.tsv")
+        f1_sample = os.path.join(out_dir, "simTransSchwefel_points_task0_sample.tsv")
+        f1_mean = os.path.join(out_dir, "simTransSchwefel_points_task0_mean.tsv")
+        f1_sample_stbo = os.path.join(out_dir, "simTransSchwefel_points_task1_sample_stbo.tsv")
+        f1_mean_stbo = os.path.join(out_dir, "simTransSchwefel_points_task1_mean_stbo.tsv")
+
+        f2_gp = os.path.join(out_dir, "simTransSchwefel_points_task2_gp" + "_from_" + task2_start_from + ".tsv")
+        f2_gp_cold = os.path.join(out_dir, "simTranSchwefel_points_task2_gp" + "_from_cold" + ".tsv")
+        f2_stbo = os.path.join(out_dir, "simTransSchwefel_points_task2_stbo" + "_from_" + task2_start_from + ".tsv")
+        f2_bcbo = os.path.join(out_dir, "simTransSchwefel_points_task2_bcbo" + "_from_" + task2_start_from + ".tsv")
+
+        low_opt1 = -50
+        high_opt1 = 50
+        low_opt2 = -50
+        high_opt2 = 50
+
+        main_experiment(T1, T2, task2_from_gp, low_opt1=low_opt1, high_opt1=high_opt1, file_1_gp=f1_gp, file_1_rand=f1_rand, 
+                file_1_sample=f1_sample, file_1_mean=f1_mean, file_1_sample_stbo=f1_sample_stbo, file_1_mean_stbo=f1_mean_stbo,
+                fun_type="SCHWEFEL", fun_transform=True, transform_c=1, low_opt2=low_opt2, high_opt2=high_opt2, file_2_gp=f2_gp, file_2_gp_cold=f2_gp_cold, 
                 file_2_stbo=f2_stbo, file_2_bcbo=f2_bcbo)
 
     elif fun_type == "ROTATE_HYPER":

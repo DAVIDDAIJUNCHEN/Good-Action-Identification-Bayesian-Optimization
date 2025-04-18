@@ -11,15 +11,7 @@ path_data=data
 if [ -z $1 ] || [ -z $2 ] || [ -z $3 ]; then 
     echo "Usage: bash run_simulation.sh <stage-number> <start_from_task1>" 
     echo "<stage-number>: 0, run all types of simulations;"
-    echo "<stage-number>: 1, run EXP only;"
-    echo "<stage-number>: 2, run Branin only;"
-    echo "<stage-number>: 3, run Needle only;"
-    echo "<stage-number>: 4, run Mono2Needle only;"
-    echo "<stage-number>: 5, run Mono2Double only;"
-    echo "<stage-number>: 6, run Double2Double only;"
-    echo "<stage-number>: 7, run Triple2Double only;"
-    echo "<stage-number>: 8, run Double2Triple only;"   
-    echo "<stage-number>: 9, run Triple2Triple 2D only;" 
+    echo "<stage-number>: N, run N-th simulation;"
     echo "<start_from_task1>: 0, skip task1 and run task 2;"
     echo "<start_from_task1>: 1, run from task1;" 
     echo "<start_from_task1>: 2, run task1 only"
@@ -47,7 +39,7 @@ if [ $stage -eq 0 ] || [ $stage -eq 1 ]; then
             out_dir=$path_data/EXP_mu2_${mu_2}_theta_${theta}_sample/$i
 
             job_name=EXP_mu2_${mu_2}_theta_${theta}_${task2_start_from}_$i
-            sbatch --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+            sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
                                             --type EXP  --mu1 $mu_1  --mu2 $mu_2  --theta $theta  --from_task1 $from_task1
             echo "Submitted $i-th EXP simulation by Slurm" 
         done
@@ -68,7 +60,7 @@ if [ $stage -eq 0 ] || [ $stage -eq 2 ]; then
         out_dir=$path_data/2D_branin_5sample_bad_prior_sampleMeanNeg50_1rF1Mean/$i
 
         job_name=Branin_${task2_start_from}_$i
-        sbatch --job-name=$job_name ./main_simulation.py --T1 $T1  --T2 $T2 --task2_start_from $task2_start_from --out_dir $out_dir \
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py --T1 $T1  --T2 $T2 --task2_start_from $task2_start_from --out_dir $out_dir \
                                         --type BR --from_task1 $from_task1
         echo "Submitted $i-th BR simulation by Slurm"
     done
@@ -92,7 +84,7 @@ if [ $stage -eq 0 ] || [ $stage -eq 3 ]; then
             out_dir=$path_data/Needle_shift_${shift}/$i
 
             job_name=Needle_shift_${shift}_${task2_start_from}_$i
-            sbatch --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+            sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
                                             --type NEEDLE  --needle_shift ${shift}  --from_task1 $from_task1
             echo "Submitted $i-th Needle simulation by Slurm"
         done
@@ -117,7 +109,7 @@ if [ $stage -eq 0 ] || [ $stage -eq 4 ]; then
             out_dir=$path_data/Mono2Needle_shift_${shift}/$i
 
             job_name=Mono2Needle_shift_${shift}_${task2_start_from}_$i
-            sbatch --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+            sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
                                             --type MONO2NEEDLE  --needle_shift ${shift}  --from_task1 $from_task1
             echo "Submitted $i-th Mono2Needle simulation by Slurm"
         done
@@ -143,7 +135,7 @@ if [ $stage -eq 0 ] || [ $stage -eq 5 ]; then
         mkdir -p $path_data/Mono2Double_mu2_${mu2}_theta2_$theta2/$i 
         out_dir=$path_data/Mono2Double_mu2_${mu2}_theta2_$theta2/$i
         job_name=Mono2Double_mu2_${mu2}_${task2_start_from}_$i
-        sbatch --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
                                         --type MONO2DOUBLE  --from_task1 $from_task1
         echo "Submitted $i-th Mono2Double exponential simulation by Slurm"
     done
@@ -164,7 +156,7 @@ if [ $stage -eq 0 ] || [ $stage -eq 6 ]; then
         mkdir -p $path_data/Double2Double_5sample_no_prior_sampleMean1.0_1rF1Mean/$i
         out_dir=$path_data/Double2Double_5sample_no_prior_sampleMean1.0_1rF1Mean/$i
         job_name=Double2Double_2close_prior_$i
-        sbatch --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
                                         --type DOUBLE2DOUBLE  --from_task1 $from_task1
         echo "Submitted $i-th Double2Double exponential simulation by Slurm"
     done
@@ -185,7 +177,7 @@ if [ $stage -eq 0 ] || [ $stage -eq 7 ]; then
         mkdir -p $path_data/Triple2Double_5sample_no_prior_sampleMean1.0_1rF1Mean/$i
         out_dir=$path_data/Triple2Double_5sample_no_prior_sampleMean1.0_1rF1Mean/$i
         job_name=Triple2Double_2close_prior_$i
-        sbatch --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
                                         --type TRIPLE2DOUBLE  --from_task1 $from_task1
         echo "Submitted $i-th Triple2Double exponential simulation by Slurm"
     done
@@ -206,7 +198,7 @@ if [ $stage -eq 0 ] || [ $stage -eq 8 ]; then
         mkdir -p $path_data/Double2Triple/$i 
         out_dir=$path_data/Double2Triple/$i
         job_name=Double2Triple_${task2_start_from}_$i
-        sbatch --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
                                         --type DOUBLE2TRIPLE  --from_task1 $from_task1
         echo "Submitted $i-th Double2Triple exponential simulation by Slurm"
     done
@@ -227,7 +219,7 @@ if [ $stage -eq 0 ] || [ $stage -eq 9 ]; then
         mkdir -p $path_data/2D_Triple2Triple_5sample_2bad_prior_sampleMean0.5_1rF1Mean/$i
         out_dir=$path_data/2D_Triple2Triple_5sample_2bad_prior_sampleMean0.5_1rF1Mean/$i
         job_name=Triple2Triple_2D_${task2_start_from}_$i
-        sbatch --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
                                         --type TRIPLE2TRIPLE_2D  --from_task1 $from_task1
         echo "Submitted $i-th 2D Triple2Triple exponential simulation by slurm"
     done
@@ -248,7 +240,7 @@ if [ $stage -eq 0 ] || [ $stage -eq 10 ]; then
         mkdir -p $path_data/2D_Double2Double_5sample_2bad_prior_sampleMean0.5_1rF1Mean/$i
         out_dir=$path_data/2D_Double2Double_5sample_2bad_prior_sampleMean0.5_1rF1Mean/$i
         job_name=Double2Double_2D_${task2_start_from}_$i
-        sbatch --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
                                         --type DOUBLE2DOUBLE_2D  --from_task1 $from_task1
         echo "Submitted $i-th 2D Double2Double exponential simulation by slurm"
     done
@@ -269,7 +261,7 @@ if [ $stage -eq 0 ] || [ $stage -eq 11 ]; then
         mkdir -p $path_data/2D_ackley_5sample_no_prior_sampleMeanNeg25_1rF1Mean/$i
         out_dir=$path_data/2D_ackley_5sample_no_prior_sampleMeanNeg25_1rF1Mean/$i
         job_name=Ackley_2D_$i
-        sbatch --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
                                         --type ACKLEY  --from_task1 $from_task1
         echo "Submitted $i-th 2D Ackley simulation by slurm"
     done
@@ -279,18 +271,18 @@ fi
 if [ $stage -eq 0 ] || [ $stage -eq 12 ]; then
     echo "Simulation 12: Bukin for RAISE-BO"
 
-    T1=20
+    T1=100
     T2=20
 
-    num_rep=20
+    num_rep=10
 
     echo "Task: bukin function"
     for i in $(seq 1 $num_rep); do
         echo "Running $i-th simulation"
-        mkdir -p $path_data/2D_bukin_5sample_bad_prior_sampleMeanNeg50_1rF1Mean/$i
-        out_dir=$path_data/2D_bukin_5sample_bad_prior_sampleMeanNeg50_1rF1Mean/$i
+        mkdir -p $path_data/2D_bukin_5sample_no_prior_sampleMeanNeg50_1rF1Mean/$i
+        out_dir=$path_data/2D_bukin_5sample_no_prior_sampleMeanNeg50_1rF1Mean/$i
         job_name=Bukin_2D_$i
-        sbatch --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
                                         --type BUKIN  --from_task1 $from_task1
         echo "Submitted $i-th 2D BUKIN simulation by slurm"
     done
@@ -311,7 +303,7 @@ if [ $stage -eq 0 ] || [ $stage -eq 13 ]; then
         mkdir -p $path_data/2D_bohach_5sample_bad_prior_sampleMeanNeg2500_1rF1Mean/$i
         out_dir=$path_data/2D_bohach_5sample_bad_prior_sampleMeanNeg2500_1rF1Mean/$i
         job_name=Bohach_2D_$i
-        sbatch --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
                                         --type BOHACH  --from_task1 $from_task1
         echo "Submitted $i-th 2D BOHACH simulation by slurm"
     done
@@ -332,7 +324,7 @@ if [ $stage -eq 0 ] || [ $stage -eq 14 ]; then
         mkdir -p $path_data/2D_booth_5sample_no_prior_sampleMeanNeg700_1rF1Mean/$i
         out_dir=$path_data/2D_booth_5sample_no_prior_sampleMeanNeg700_1rF1Mean/$i
         job_name=Booth_2D_$i
-        sbatch --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
                                         --type BOOTH  --from_task1 $from_task1
         echo "Submitted $i-th 2D BOOTH simulation by slurm"
     done
@@ -353,7 +345,7 @@ if [ $stage -eq 0 ] || [ $stage -eq 15 ]; then
         mkdir -p $path_data/2D_griewank_5sample_bad_prior_sampleMeanNeg2_1rF1Mean/$i
         out_dir=$path_data/2D_griewank_5sample_bad_prior_sampleMeanNeg2_1rF1Mean/$i
         job_name=Griewank_2D_$i
-        sbatch --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
                                         --type GRIEWANK  --from_task1 $from_task1
         echo "Submitted $i-th 2D Griewank simulation by slurm"
     done
@@ -363,18 +355,18 @@ fi
 if [ $stage -eq 0 ] || [ $stage -eq 16 ]; then
     echo "Simulation 16: SCHWEFEL for RAISE-BO"
 
-    T1=20
+    T1=100
     T2=20
 
-    num_rep=20
+    num_rep=10
 
     echo "Task: Schwefel function"
     for i in $(seq 1 $num_rep); do
         echo "Running $i-th simulation"
-        mkdir -p $path_data/2D_schwefel_5sample_no_prior_sampleMeanNeg800_1rF1Mean/$i
-        out_dir=$path_data/2D_schwefel_5sample_no_prior_sampleMeanNeg800_1rF1Mean/$i
+        mkdir -p $path_data/2D_schwefel_5sample_no_prior_sampleMeanNeg600_1rF1Mean/$i
+        out_dir=$path_data/2D_schwefel_5sample_no_prior_sampleMeanNeg600_1rF1Mean/$i
         job_name=Schwefel_2D_$i
-        sbatch --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
                                         --type SCHWEFEL  --from_task1 $from_task1
         echo "Submitted $i-th 2D Schwefel simulation by slurm"
     done
@@ -395,7 +387,7 @@ if [ $stage -eq 0 ] || [ $stage -eq 17 ]; then
         mkdir -p $path_data/2D_rotateHyper_5sample_bad_prior_sampleMeanNeg1000_1rF1Mean/$i
         out_dir=$path_data/2D_rotateHyper_5sample_bad_prior_sampleMeanNeg1000_1rF1Mean/$i
         job_name=RotateHyper_2D_$i
-        sbatch --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
                                         --type ROTATE_HYPER  --from_task1 $from_task1
         echo "Submitted $i-th 2D Rotate Hyper simulation by slurm"
     done
@@ -416,7 +408,7 @@ if [ $stage -eq 0 ] || [ $stage -eq 18 ]; then
         mkdir -p $path_data/2D_matyas_5sample_bad_prior_sampleMeanNeg0.5_1rF1Mean/$i
         out_dir=$path_data/2D_matyas_5sample_bad_prior_sampleMeanNeg0.5_1rF1Mean/$i
         job_name=Matyas_2D_$i
-        sbatch --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
                                         --type MATYAS  --from_task1 $from_task1
         echo "Submitted $i-th 2D MATYAS simulation by slurm"
     done
@@ -437,7 +429,7 @@ if [ $stage -eq 0 ] || [ $stage -eq 19 ]; then
         mkdir -p $path_data/2D_sixHump_5sample_no_prior_sampleMeanNeg0.5_1rF1Mean/$i
         out_dir=$path_data/2D_sixHump_5sample_no_prior_sampleMeanNeg0.5_1rF1Mean/$i
         job_name=SixHump_2D_$i
-        sbatch --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
                                         --type SIX_HUMP  --from_task1 $from_task1
         echo "Submitted $i-th 2D Six Hump simulation by slurm"
     done
@@ -447,7 +439,7 @@ fi
 if [ $stage -eq 0 ] || [ $stage -eq 20 ]; then
     echo "Simulation 20: Forrester for RAISE-BO"
 
-    T1=20
+    T1=100
     T2=20
 
     num_rep=20
@@ -458,9 +450,157 @@ if [ $stage -eq 0 ] || [ $stage -eq 20 ]; then
         mkdir -p $path_data/2D_forrester_5sample_far_prior_sampleMeanNeg0.5_1rF1Mean/$i
         out_dir=$path_data/2D_forrester_5sample_far_prior_sampleMeanNeg0.5_1rF1Mean/$i
         job_name=Forrester_2D_$i
-        sbatch --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
                                         --type FORRESTER  --from_task1 $from_task1
         echo "Submitted $i-th 2D Forrester simulation by slurm"
+    done
+fi
+
+
+if [ $stage -eq 0 ] || [ $stage -eq 21 ]; then
+    echo "Simulation 21: Ackley_10D for RAISE-BO"
+
+    T1=100
+    T2=20
+
+    num_rep=10
+
+    echo "Task: Ackley 10d function"
+    for i in $(seq 1 $num_rep); do
+        echo "Running $i-th simulation"
+        mkdir -p $path_data/10D_ackley_5sample_no_prior_sampleMeanNeg15_1rF1Mean/$i
+        out_dir=$path_data/10D_ackley_5sample_no_prior_sampleMeanNeg15_1rF1Mean/$i
+        job_name=Ackley_10D_$i
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name  ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+                                        --type ACKLEY_10D  --from_task1 $from_task1
+        echo "Submitted $i-th 10D Ackley simulation by slurm"
+    done
+fi
+
+
+if [ $stage -eq 0 ] || [ $stage -eq 22 ]; then
+    echo "Simulation 22: Levy_6D for RAISE-BO"
+
+    T1=100
+    T2=20
+
+    num_rep=10
+
+    echo "Task: Levy 6d function"
+    for i in $(seq 1 $num_rep); do
+        echo "Running $i-th simulation"
+        mkdir -p $path_data/6D_levy_5sample_no_prior_sampleMeanNeg20_1rF1Mean/$i
+        out_dir=$path_data/6D_levy_5sample_no_prior_sampleMeanNeg20_1rF1Mean/$i
+        job_name=Levy_6D_$i
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name  ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+                                        --type LEVY_6D  --from_task1 $from_task1
+        echo "Submitted $i-th 6D Levy simulation by slurm"
+    done
+fi
+
+
+# add simulation 23: Garnett 
+if [ $stage -eq 0 ] || [ $stage -eq 23 ]; then
+    echo "Simulation 23: Garnett for RAISE-BO"
+
+    T1=100
+    T2=20
+
+    num_rep=20
+
+    echo "Task: Garnett function"
+    for i in $(seq 1 $num_rep); do
+        echo "Running $i-th simulation"
+        mkdir -p $path_data/Garnett_5sample_2bad_prior_sampleMean2_1rF1Mean_GPtheta0.1/$i
+        out_dir=$path_data/Garnett_5sample_2bad_prior_sampleMean2_1rF1Mean_GPtheta0.1/$i
+        job_name=Garnett_1D_$i
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+                                        --type GARNETT  --from_task1 $from_task1
+        echo "Submitted $i-th 1D Garnett simulation by slurm"
+    done
+fi
+
+
+if [ $stage -eq 0 ] || [ $stage -eq 24 ]; then
+    echo "Simulation 23: Transformed Ackley_10D  for RAISE-BO"
+
+    T1=100
+    T2=20
+
+    num_rep=10
+
+    echo "Task: Transformed Ackley 10d function"
+    for i in $(seq 1 $num_rep); do
+        echo "Running $i-th simulation"
+        mkdir -p $path_data/10D_ackley_trans_5sample_no_prior_sampleMeanNeg15_1rF1Mean/$i
+        out_dir=$path_data/10D_ackley_trans_5sample_no_prior_sampleMeanNeg15_1rF1Mean/$i
+        job_name=Trans_Ackley_10D_$i
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+                                        --type TRANS_ACKLEY_10D  --from_task1 $from_task1
+        echo "Submitted $i-th 10D Transformed Ackley simulation by slurm"
+    done
+fi
+
+
+if [ $stage -eq 0 ] || [ $stage -eq 25 ]; then
+    echo "Simulation 24: Transformed Levy_6D  for RAISE-BO"
+
+    T1=100
+    T2=20
+
+    num_rep=10
+
+    echo "Task: Transformed Levy 6d function"
+    for i in $(seq 1 $num_rep); do
+        echo "Running $i-th simulation"
+        mkdir -p $path_data/6D_levy_trans_5sample_no_prior_sampleMeanNeg5_1rF1Mean/$i
+        out_dir=$path_data/6D_levy_trans_5sample_no_prior_sampleMeanNeg5_1rF1Mean/$i
+        job_name=Trans_Levy_6D_$i
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name  ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+                                        --type TRANS_LEVY_6D  --from_task1 $from_task1
+        echo "Submitted $i-th 6D Transformed Levy simulation by slurm"
+    done
+fi
+
+
+if [ $stage -eq 0 ] || [ $stage -eq 26 ]; then
+    echo "Simulation 25: Transformed SCHWEFEL for RAISE-BO"
+
+    T1=100
+    T2=20
+
+    num_rep=10
+
+    echo "Task: Transformed Schwefel function"
+    for i in $(seq 1 $num_rep); do
+        echo "Running $i-th simulation"
+        mkdir -p $path_data/2D_schwefel_trans_5sample_no_prior_sampleMeanNeg600_1rF1Mean/$i
+        out_dir=$path_data/2D_schwefel_trans_5sample_no_prior_sampleMeanNeg600_1rF1Mean/$i
+        job_name=Trans_Schwefel_2D_$i
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+                                        --type TRANS_SCHWEFEL  --from_task1 $from_task1
+        echo "Submitted $i-th 2D Transformed Schwefel simulation by slurm"
+    done
+fi
+
+
+if [ $stage -eq 0 ] || [ $stage -eq 27 ]; then
+    echo "Simulation 26: Transformed Bukin for RAISE-BO"
+
+    T1=100
+    T2=20
+
+    num_rep=10
+
+    echo "Task: Transformed bukin function"
+    for i in $(seq 1 $num_rep); do
+        echo "Running $i-th simulation"
+        mkdir -p $path_data/2D_bukin_trans_5sample_no_prior_sampleMeanNeg20_1rF1Mean/$i
+        out_dir=$path_data/2D_bukin_trans_5sample_no_prior_sampleMeanNeg20_1rF1Mean/$i
+        job_name=Trans_Bukin_2D_$i
+        sbatch --partition=gcpu --time=2500 --job-name=$job_name ./main_simulation.py  --T1 $T1  --T2 $T2  --task2_start_from $task2_start_from  --out_dir $out_dir \
+                                        --type TRANS_BUKIN  --from_task1 $from_task1
+        echo "Submitted $i-th 2D Transformed BUKIN simulation by slurm"
     done
 fi
 

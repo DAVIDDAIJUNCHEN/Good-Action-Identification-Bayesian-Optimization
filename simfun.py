@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import numpy as np
 import matplotlib.pyplot as plt
+import math
 from matplotlib import cm
 from mpl_toolkits.mplot3d import axes3d
+from scipy.interpolate import interp1d  
 
 
 # benchmark functions
@@ -13,12 +15,45 @@ def ackley(pnt_2d):  # 1
     fx = -20.0 * np.exp(-0.2*np.sqrt(0.5*(x**2 + y**2)))-np.exp(0.5*(np.cos(2*np.pi*x)+np.cos(2*np.pi*y))) + np.e + 20
     return -1*fx
 
-def bukin(pnt_2d):   # 2 
+def ackley_10d(pnt_10d, fun_transform, transform_c):
+    "x in [-10, 10]^10"
+    pi = np.pi
+    x_norm = np.sqrt(sum([pnt_10d[i]**2 for i in range(10)]))
+    fx_1 = -20*np.exp(-0.2/np.sqrt(10) * x_norm)
+    fx_2 = -1 * np.exp(0.1 * sum([np.cos(2*pi*pnt_10d[i]) for i in range(10)]))
+    fx = fx_1 + fx_2 + 20 + np.exp(1)
+
+    if not fun_transform:
+        return -1*fx
+    else:
+        fx = np.exp(-1*transform_c*fx)
+        return fx
+
+def levy_6d(pnt_6d, fun_transform, transform_c):
+    "x in [-10, 10]^6"
+    w = [1 + (pnt_6d[i] - 1) / 4 for i in range(6)]
+    pi = math.pi 
+
+    fx = np.square(np.sin(pi*w[0])) + np.sum([np.square(w[i]-1)*(1+10*np.square(np.sin(pi*w[i]+1))) for i in range(5)]) + \
+            np.square(w[5]-1)*(1 + np.square(np.sin(2*pi*w[5])))
+
+    if not fun_transform:
+        return -1*fx
+    else:
+        fx = np.exp(-1*transform_c*fx)
+        return fx
+
+def bukin(pnt_2d, fun_transform, transform_c):   # 2 
     x = pnt_2d[0]
     y = pnt_2d[1]
 
     fx = 100 * np.sqrt(np.abs(y - 0.01*(x**2) + 0.01*np.abs(x + 10)))
-    return -1*fx
+
+    if not fun_transform:
+        return -1*fx
+    else:
+        fx = np.exp(-1*transform_c*fx)
+        return fx
 
 def booth(pnt_2d):   # 24
     x = pnt_2d[0]
@@ -34,12 +69,51 @@ def griewank(pnt_2d):  #7 [-5, 5]
     fx = x**2/4000 + y**2/4000 - np.cos(x)*np.cos(y/np.sqrt(2)) + 1
     return -1*fx
 
-def schwefel(pnt_2d):  #15 [-50, 50]
+def target_garnett_function(x_val, file_points="./target_garnett.tsv", kind='linear'):  
+    """  
+    根据给定的点创建插值函数, 并输出在 x 处的函数值  
+    
+    参数:  
+    x : array-like  
+        要插值的x坐标点
+    kind : str, optional  
+        插值类型，可以是 'linear', 'nearest', 'zero', 'slinear', 'quadratic', 'cubic'等  
+        默认为 'linear'  
+    file_points : str, optional
+        包含插值点的文件路径，默认为 "./target_garnett.tsv"
+    返回:  
+    function  
+        可以用于计算任意x值的插值函数值  
+    """  
+    # 读取文件中的点
+    x_points = []
+    y_points = []
+    with open(file_points, 'r', encoding='utf-8') as f:
+        for line in f:
+            if '#' not in line:
+                point = line.split()
+                x_points.append(float(point[0]))
+                y_points.append(float(point[1]))
+
+    x = np.asarray(x_points)  
+    y = np.asarray(y_points)  
+    
+    # 创建插值函数  
+    interp_func = interp1d(x, y, kind=kind, fill_value='extrapolate')  
+    
+    return interp_func(x_val)
+
+def schwefel(pnt_2d, fun_transform, transform_c):  #15 [-50, 50]
     x = pnt_2d[0]*10
     y = pnt_2d[1]*10
 
     fx = 418.9829*2 - x*np.sin(np.sqrt(np.abs(x))) - y*np.sin(np.sqrt(np.abs(x)))
-    return -1*fx    
+
+    if not fun_transform:
+        return -1*fx
+    else:
+        fx = np.exp(-1*transform_c*fx)
+        return fx
 
 def bohachevsky(pnt_2d): # 17  []
     x = pnt_2d[0]

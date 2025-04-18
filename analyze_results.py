@@ -82,7 +82,7 @@ def maxulative(lists):
 
     return max_list
 
-def run_statistics(file_lsts, out_dir, header_name="response", topic=None):
+def run_statistics(file_lsts, out_dir, header_name="response", topic=None, obj_trans=False, trans_c=1):
     """
     get statistics of column header_name at each step,
     file_lsts: [[file1_name1, file2_name1], [file1_name2, file2_name2]]
@@ -97,7 +97,13 @@ def run_statistics(file_lsts, out_dir, header_name="response", topic=None):
         for file_name in file_lst_k:
             col_value = get_col(file_name, header_name)
             col_value_maxulative = maxulative(col_value)
-            lst_col_value.append(col_value_maxulative)
+            if not obj_trans:
+                lst_col_value.append(col_value_maxulative)
+            else:
+                print(file_name)
+                #print(col_value_maxulative)
+                lst_col_value.append(np.log(col_value_maxulative)/trans_c)
+
             max_len = max(len(col_value_maxulative), max_len)
 
         if not os.path.isdir(out_dir):

@@ -2,6 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from smt.sampling_methods import LHS
+from scipy.interpolate import interp1d  
 
 
 def find_max_min_of_each_component(lst, max=True):
@@ -100,25 +101,63 @@ def draw_2d_lhd(file_sampling):
 
     plt.show()
 
+def target_garnett_function(x_val, file_points="./target_garnett.tsv", kind='linear'):  
+    """  
+    根据给定的点创建插值函数, 并输出在 x 处的函数值  
+    
+    参数:  
+    x : array-like  
+        要插值的x坐标点
+    kind : str, optional  
+        插值类型，可以是 'linear', 'nearest', 'zero', 'slinear', 'quadratic', 'cubic'等  
+        默认为 'linear'  
+    file_points : str, optional
+        包含插值点的文件路径，默认为 "./target_garnett.tsv"
+    返回:  
+    function  
+        可以用于计算任意x值的插值函数值  
+    """  
+    # 读取文件中的点
+    x_points = []
+    y_points = []
+    with open(file_points, 'r', encoding='utf-8') as f:
+        for line in f:
+            if '#' not in line:
+                point = line.split()
+                x_points.append(float(point[0]))
+                y_points.append(float(point[1]))
+
+    x = np.asarray(x_points)  
+    y = np.asarray(y_points)  
+    
+    # 创建插值函数  
+    interp_func = interp1d(x, y, kind=kind, fill_value='extrapolate')  
+    
+    return interp_func(x_val)
+
+
 if __name__ == "__main__":
-    l_bounds = [1, 3]
-    u_bounds = [5, 9]
-    print(check_inBounds([-3, 5], l_bounds, u_bounds))
+    # l_bounds = [1, 3]
+    # u_bounds = [5, 9]
+    # print(check_inBounds([-3, 5], l_bounds, u_bounds))
 
-    file_dir = "./data/2D_Triple2Triple_sample_backup/2D_Triple2Triple_sample_bad_prior_scaleTheta/20"
-    file_name = "simTriple2Triple2D_points_task0_sample.tsv"
-    draw_2d_lhd(file_sampling=file_dir+'/'+file_name)
+    # file_dir = "./data/2D_Triple2Triple_sample_backup/2D_Triple2Triple_sample_bad_prior_scaleTheta/20"
+    # file_name = "simTriple2Triple2D_points_task0_sample.tsv"
+    # draw_2d_lhd(file_sampling=file_dir+'/'+file_name)
 
-    # Maxmin LHD illustration    
-    xlimits = np.array([[1.0, 4.0], [2.0, 3.0]])
-    sampling = LHS(xlimits=xlimits, criterion='maximin')
+    # # Maxmin LHD illustration    
+    # xlimits = np.array([[1.0, 4.0], [2.0, 3.0]])
+    # sampling = LHS(xlimits=xlimits, criterion='maximin')
 
-    num = 10
-    x = sampling(num)
+    # num = 10
+    # x = sampling(num)
 
-    print(x.shape)
+    # print(x.shape)
 
-    plt.plot(x[:, 0], x[:, 1], "o")
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.show()
+    # plt.plot(x[:, 0], x[:, 1], "o")
+    # plt.xlabel("x")
+    # plt.ylabel("y")
+    # plt.show()
+    
+    val_garnett = target_garnett_function(0.48048048048048)
+    print("garnett at 0.4804: ", val_garnett)
